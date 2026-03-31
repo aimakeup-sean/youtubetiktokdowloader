@@ -53,8 +53,19 @@ app.post('/api/info', async (req, res) => {
   }
 
   const safeUrl = url.replace(/['"]/g, '');
-  exec(`"${ytdlp}" --dump-json --no-playlist "${safeUrl}"`, { timeout: 40000 }, (err, stdout) => {
-    if (err) return res.status(400).json({ error: '동영상 정보를 가져올 수 없습니다. URL을 확인해주세요.' });
+  const infoArgs = [
+    '--dump-json', '--no-playlist',
+    '--extractor-args', 'youtube:player_client=android,web',
+    '--no-check-certificates',
+    '--user-agent', 'Mozilla/5.0 (Linux; Android 11; Pixel 5) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/90.0.4430.91 Mobile Safari/537.36',
+    safeUrl,
+  ].map(a => `"${a}"`).join(' ');
+
+  exec(`"${ytdlp}" ${infoArgs}`, { timeout: 40000 }, (err, stdout, stderr) => {
+    if (err) {
+      console.error('[info error]', stderr);
+      return res.status(400).json({ error: '동영상 정보를 가져올 수 없습니다. URL을 확인해주세요.' });
+    }
     try {
       const info = JSON.parse(stdout);
       const formats = (info.formats || [])
@@ -99,12 +110,14 @@ app.get('/api/download', async (req, res) => {
     '--no-playlist',
     '-o', '-',
     '--no-warnings',
+    '--extractor-args', 'youtube:player_client=android,web',
+    '--no-check-certificates',
+    '--user-agent', 'Mozilla/5.0 (Linux; Android 11; Pixel 5) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/90.0.4430.91 Mobile Safari/537.36',
   ];
 
   if (format && format !== 'best') {
     args.push('-f', format);
   } else {
-    // Single format (no merging) for direct pipe - best single-file option
     args.push('-f', 'best[ext=mp4]/best');
   }
   args.push(safeUrl);
