@@ -1,0 +1,339 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>VideoDown — YouTube & TikTok 다운로더</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      min-height: 100vh;
+      background: linear-gradient(135deg, #0f0c29, #302b63, #24243e);
+      font-family: 'Segoe UI', 'Apple SD Gothic Neo', sans-serif;
+      color: #fff;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 48px 16px 60px;
+    }
+
+    .logo {
+      font-size: 2.8rem;
+      font-weight: 800;
+      letter-spacing: -1px;
+      margin-bottom: 8px;
+      background: linear-gradient(90deg, #ff416c, #ff4b2b, #f7971e, #ffd200);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .subtitle { color: #9ca3af; font-size: 0.95rem; margin-bottom: 32px; }
+
+    .badge-row {
+      display: flex; gap: 10px; margin-bottom: 40px;
+      flex-wrap: wrap; justify-content: center;
+    }
+
+    .badge {
+      display: flex; align-items: center; gap: 7px;
+      background: rgba(255,255,255,0.07);
+      border: 1px solid rgba(255,255,255,0.12);
+      border-radius: 999px; padding: 7px 16px;
+      font-size: 0.83rem; font-weight: 600;
+    }
+
+    .badge .dot { width: 8px; height: 8px; border-radius: 50%; }
+    .badge.yt .dot { background: #ff0000; }
+    .badge.tt .dot { background: #69c9d0; }
+
+    .card {
+      background: rgba(255,255,255,0.05);
+      border: 1px solid rgba(255,255,255,0.1);
+      backdrop-filter: blur(16px);
+      border-radius: 22px;
+      padding: 32px;
+      width: 100%; max-width: 640px;
+    }
+
+    .input-row { display: flex; gap: 10px; }
+
+    input[type="text"] {
+      flex: 1;
+      background: rgba(255,255,255,0.08);
+      border: 1px solid rgba(255,255,255,0.14);
+      border-radius: 13px;
+      padding: 14px 18px;
+      color: #fff; font-size: 0.95rem;
+      outline: none; transition: border-color 0.2s;
+    }
+    input[type="text"]::placeholder { color: #555; }
+    input[type="text"]:focus { border-color: #7c3aed; }
+
+    .btn {
+      padding: 14px 22px;
+      border: none; border-radius: 13px;
+      font-size: 0.95rem; font-weight: 700;
+      cursor: pointer; transition: opacity 0.2s, transform 0.1s;
+    }
+    .btn:active { transform: scale(0.97); }
+    .btn:disabled { opacity: 0.45; cursor: not-allowed; }
+
+    .btn-search {
+      background: linear-gradient(135deg, #7c3aed, #4f46e5);
+      color: #fff; white-space: nowrap;
+    }
+
+    /* Info section */
+    #info-section { display: none; margin-top: 28px; }
+
+    .video-meta {
+      display: flex; gap: 16px; align-items: flex-start; margin-bottom: 20px;
+    }
+
+    .video-meta img {
+      width: 130px; height: 80px; object-fit: cover;
+      border-radius: 10px; flex-shrink: 0;
+    }
+
+    .video-meta-text h3 {
+      font-size: 1rem; font-weight: 700; margin-bottom: 5px; line-height: 1.4;
+    }
+    .video-meta-text p { font-size: 0.82rem; color: #9ca3af; }
+
+    .format-select {
+      background: rgba(255,255,255,0.08);
+      border: 1px solid rgba(255,255,255,0.14);
+      border-radius: 11px; padding: 12px 16px;
+      color: #fff; font-size: 0.9rem;
+      width: 100%; margin-bottom: 14px;
+      outline: none; cursor: pointer;
+    }
+    .format-select option { background: #1e1b4b; }
+
+    .btn-download {
+      width: 100%;
+      background: linear-gradient(135deg, #16a34a, #15803d);
+      color: #fff; font-size: 1rem; padding: 15px;
+    }
+
+    /* Error */
+    .error-box {
+      background: rgba(220,38,38,0.15);
+      border: 1px solid rgba(220,38,38,0.4);
+      border-radius: 11px; padding: 14px;
+      font-size: 0.88rem; color: #fca5a5;
+      margin-top: 16px; display: none;
+    }
+
+    /* Downloading overlay */
+    #downloading-section { display: none; margin-top: 20px; }
+
+    .downloading-box {
+      background: rgba(124,58,237,0.15);
+      border: 1px solid rgba(124,58,237,0.35);
+      border-radius: 13px; padding: 22px;
+      text-align: center;
+    }
+
+    .downloading-box .title {
+      font-weight: 700; margin-bottom: 6px;
+    }
+
+    .downloading-box .sub {
+      font-size: 0.83rem; color: #a5b4fc;
+    }
+
+    .progress-bar-wrap {
+      background: rgba(255,255,255,0.08);
+      border-radius: 999px; height: 6px;
+      margin: 16px 0 0; overflow: hidden;
+    }
+
+    .progress-bar-fill {
+      height: 100%;
+      background: linear-gradient(90deg, #7c3aed, #4f46e5);
+      border-radius: 999px;
+      animation: indeterminate 1.5s ease-in-out infinite;
+      width: 40%;
+    }
+
+    @keyframes indeterminate {
+      0%   { transform: translateX(-100%); }
+      100% { transform: translateX(350%); }
+    }
+
+    .spinner {
+      display: inline-block; width: 16px; height: 16px;
+      border: 2px solid rgba(255,255,255,0.2);
+      border-top-color: #fff; border-radius: 50%;
+      animation: spin 0.6s linear infinite;
+      vertical-align: middle; margin-right: 6px;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .footer {
+      margin-top: 44px; font-size: 0.75rem; color: #374151; text-align: center;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="logo">VideoDown</div>
+  <p class="subtitle">YouTube & TikTok 동영상 다운로더</p>
+
+  <div class="badge-row">
+    <div class="badge yt"><span class="dot"></span> YouTube</div>
+    <div class="badge tt"><span class="dot"></span> TikTok</div>
+  </div>
+
+  <div class="card">
+    <div class="input-row">
+      <input type="text" id="url-input" placeholder="YouTube 또는 TikTok 링크를 붙여넣으세요..." />
+      <button class="btn btn-search" id="search-btn" onclick="fetchInfo()">분석</button>
+    </div>
+
+    <div class="error-box" id="error-box"></div>
+
+    <div id="info-section">
+      <div class="video-meta">
+        <img id="thumbnail" src="" alt="thumbnail" onerror="this.style.display='none'" />
+        <div class="video-meta-text">
+          <h3 id="video-title"></h3>
+          <p id="video-meta"></p>
+        </div>
+      </div>
+
+      <select class="format-select" id="format-select">
+        <option value="best">최고 화질 (MP4)</option>
+      </select>
+
+      <button class="btn btn-download" id="download-btn" onclick="startDownload()">
+        다운로드
+      </button>
+    </div>
+
+    <div id="downloading-section">
+      <div class="downloading-box">
+        <div class="title">다운로드 중...</div>
+        <div class="sub" id="dl-sub">잠시 기다려주세요</div>
+        <div class="progress-bar-wrap">
+          <div class="progress-bar-fill"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="footer">
+    개인 사용 목적으로만 사용하세요. 저작권에 유의하세요.
+  </div>
+
+<script>
+  let currentUrl = '';
+  let currentTitle = '';
+
+  function showError(msg) {
+    const box = document.getElementById('error-box');
+    box.textContent = msg;
+    box.style.display = 'block';
+  }
+
+  function hideError() {
+    document.getElementById('error-box').style.display = 'none';
+  }
+
+  function formatDuration(sec) {
+    if (!sec) return '';
+    const m = Math.floor(sec / 60), s = sec % 60;
+    return `${m}:${String(s).padStart(2, '0')}`;
+  }
+
+  function formatSize(bytes) {
+    if (!bytes) return '';
+    if (bytes > 1e9) return (bytes / 1e9).toFixed(1) + ' GB';
+    if (bytes > 1e6) return (bytes / 1e6).toFixed(1) + ' MB';
+    return Math.round(bytes / 1e3) + ' KB';
+  }
+
+  async function fetchInfo() {
+    const url = document.getElementById('url-input').value.trim();
+    if (!url) return showError('URL을 입력해주세요.');
+
+    hideError();
+    document.getElementById('info-section').style.display = 'none';
+    document.getElementById('downloading-section').style.display = 'none';
+
+    const btn = document.getElementById('search-btn');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner"></span> 분석 중...';
+
+    try {
+      const res = await fetch('/api/info', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+
+      currentUrl = url;
+      currentTitle = data.title || 'video';
+
+      document.getElementById('thumbnail').src = data.thumbnail || '';
+      document.getElementById('thumbnail').style.display = '';
+      document.getElementById('video-title').textContent = data.title || '제목 없음';
+      document.getElementById('video-meta').textContent =
+        [data.uploader, formatDuration(data.duration)].filter(Boolean).join(' · ');
+
+      const select = document.getElementById('format-select');
+      select.innerHTML = '<option value="best">최고 화질 (MP4)</option>';
+      (data.formats || []).reverse().forEach(f => {
+        const opt = document.createElement('option');
+        opt.value = f.format_id;
+        const size = formatSize(f.filesize);
+        opt.textContent = [f.resolution, f.ext.toUpperCase(), size, f.format_note].filter(Boolean).join(' · ');
+        select.appendChild(opt);
+      });
+
+      document.getElementById('info-section').style.display = 'block';
+    } catch (e) {
+      showError(e.message || '오류 발생');
+    } finally {
+      btn.disabled = false;
+      btn.textContent = '분석';
+    }
+  }
+
+  function startDownload() {
+    if (!currentUrl) return;
+
+    const format = document.getElementById('format-select').value;
+    const params = new URLSearchParams({
+      url: currentUrl,
+      format,
+      title: currentTitle,
+    });
+
+    document.getElementById('downloading-section').style.display = 'block';
+    document.getElementById('dl-sub').textContent = '파일을 준비 중입니다...';
+
+    // Trigger browser download via hidden link
+    const a = document.createElement('a');
+    a.href = '/api/download?' + params.toString();
+    a.style.display = 'none';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+
+    // Hide downloading indicator after a moment
+    setTimeout(() => {
+      document.getElementById('downloading-section').style.display = 'none';
+    }, 4000);
+  }
+
+  document.getElementById('url-input').addEventListener('keydown', e => {
+    if (e.key === 'Enter') fetchInfo();
+  });
+</script>
+</body>
+</html>
