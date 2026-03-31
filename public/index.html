@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>VideoDown — YouTube & TikTok 다운로더</title>
+  <title>VideoDown — YouTube · TikTok · Instagram</title>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -28,24 +28,45 @@
       -webkit-text-fill-color: transparent;
     }
 
-    .subtitle { color: #9ca3af; font-size: 0.95rem; margin-bottom: 32px; }
+    .subtitle { color: #9ca3af; font-size: 0.95rem; margin-bottom: 36px; }
 
-    .badge-row {
-      display: flex; gap: 10px; margin-bottom: 40px;
-      flex-wrap: wrap; justify-content: center;
+    /* Platform tabs */
+    .platform-tabs {
+      display: flex;
+      gap: 0;
+      background: rgba(255,255,255,0.06);
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 16px;
+      padding: 4px;
+      margin-bottom: 36px;
     }
 
-    .badge {
-      display: flex; align-items: center; gap: 7px;
-      background: rgba(255,255,255,0.07);
-      border: 1px solid rgba(255,255,255,0.12);
-      border-radius: 999px; padding: 7px 16px;
-      font-size: 0.83rem; font-weight: 600;
+    .tab {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 22px;
+      border-radius: 12px;
+      border: none;
+      background: transparent;
+      color: #9ca3af;
+      font-size: 0.9rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
     }
 
-    .badge .dot { width: 8px; height: 8px; border-radius: 50%; }
-    .badge.yt .dot { background: #ff0000; }
-    .badge.tt .dot { background: #69c9d0; }
+    .tab:hover { color: #fff; }
+
+    .tab.active {
+      color: #fff;
+    }
+
+    .tab.active.yt { background: rgba(255,0,0,0.2); }
+    .tab.active.tt { background: rgba(105,201,208,0.2); }
+    .tab.active.ig { background: rgba(225,48,108,0.2); }
+
+    .tab-icon { font-size: 1.1rem; }
 
     .card {
       background: rgba(255,255,255,0.05);
@@ -53,7 +74,8 @@
       backdrop-filter: blur(16px);
       border-radius: 22px;
       padding: 32px;
-      width: 100%; max-width: 640px;
+      width: 100%;
+      max-width: 660px;
     }
 
     .input-row { display: flex; gap: 10px; }
@@ -64,143 +86,224 @@
       border: 1px solid rgba(255,255,255,0.14);
       border-radius: 13px;
       padding: 14px 18px;
-      color: #fff; font-size: 0.95rem;
-      outline: none; transition: border-color 0.2s;
+      color: #fff;
+      font-size: 0.95rem;
+      outline: none;
+      transition: border-color 0.2s;
     }
-    input[type="text"]::placeholder { color: #555; }
+    input[type="text"]::placeholder { color: #4b5563; }
     input[type="text"]:focus { border-color: #7c3aed; }
 
     .btn {
       padding: 14px 22px;
-      border: none; border-radius: 13px;
-      font-size: 0.95rem; font-weight: 700;
-      cursor: pointer; transition: opacity 0.2s, transform 0.1s;
+      border: none;
+      border-radius: 13px;
+      font-size: 0.95rem;
+      font-weight: 700;
+      cursor: pointer;
+      transition: opacity 0.2s, transform 0.1s;
+      white-space: nowrap;
     }
     .btn:active { transform: scale(0.97); }
     .btn:disabled { opacity: 0.45; cursor: not-allowed; }
 
-    .btn-search {
-      background: linear-gradient(135deg, #7c3aed, #4f46e5);
-      color: #fff; white-space: nowrap;
+    .btn-search { background: linear-gradient(135deg, #7c3aed, #4f46e5); color: #fff; }
+
+    /* Platform hint */
+    .platform-hint {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin-top: 10px;
+      font-size: 0.8rem;
+      color: #6b7280;
+      padding: 0 4px;
     }
 
     /* Info section */
-    #info-section { display: none; margin-top: 28px; }
+    #info-section { display: none; margin-top: 24px; }
+
+    .divider {
+      border: none;
+      border-top: 1px solid rgba(255,255,255,0.08);
+      margin: 0 0 20px;
+    }
 
     .video-meta {
-      display: flex; gap: 16px; align-items: flex-start; margin-bottom: 20px;
+      display: flex;
+      gap: 16px;
+      align-items: flex-start;
+      margin-bottom: 20px;
     }
 
     .video-meta img {
-      width: 130px; height: 80px; object-fit: cover;
-      border-radius: 10px; flex-shrink: 0;
+      width: 130px;
+      height: 80px;
+      object-fit: cover;
+      border-radius: 10px;
+      flex-shrink: 0;
+      background: rgba(255,255,255,0.05);
     }
 
     .video-meta-text h3 {
-      font-size: 1rem; font-weight: 700; margin-bottom: 5px; line-height: 1.4;
+      font-size: 1rem;
+      font-weight: 700;
+      margin-bottom: 5px;
+      line-height: 1.4;
     }
-    .video-meta-text p { font-size: 0.82rem; color: #9ca3af; }
+    .video-meta-text .meta-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 0.82rem;
+      color: #9ca3af;
+    }
+
+    .platform-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      font-size: 0.75rem;
+      font-weight: 700;
+      padding: 2px 8px;
+      border-radius: 999px;
+    }
+    .platform-badge.youtube { background: rgba(255,0,0,0.2); color: #f87171; }
+    .platform-badge.tiktok  { background: rgba(105,201,208,0.2); color: #67e8f9; }
+    .platform-badge.instagram { background: rgba(225,48,108,0.2); color: #f9a8d4; }
+    .platform-badge.generic { background: rgba(255,255,255,0.1); color: #d1d5db; }
 
     .format-select {
       background: rgba(255,255,255,0.08);
       border: 1px solid rgba(255,255,255,0.14);
-      border-radius: 11px; padding: 12px 16px;
-      color: #fff; font-size: 0.9rem;
-      width: 100%; margin-bottom: 14px;
-      outline: none; cursor: pointer;
+      border-radius: 11px;
+      padding: 12px 16px;
+      color: #fff;
+      font-size: 0.9rem;
+      width: 100%;
+      margin-bottom: 14px;
+      outline: none;
+      cursor: pointer;
     }
     .format-select option { background: #1e1b4b; }
 
     .btn-download {
       width: 100%;
       background: linear-gradient(135deg, #16a34a, #15803d);
-      color: #fff; font-size: 1rem; padding: 15px;
+      color: #fff;
+      font-size: 1rem;
+      padding: 15px;
     }
 
     /* Error */
     .error-box {
       background: rgba(220,38,38,0.15);
-      border: 1px solid rgba(220,38,38,0.4);
-      border-radius: 11px; padding: 14px;
-      font-size: 0.88rem; color: #fca5a5;
-      margin-top: 16px; display: none;
+      border: 1px solid rgba(220,38,38,0.35);
+      border-radius: 11px;
+      padding: 14px 16px;
+      font-size: 0.88rem;
+      color: #fca5a5;
+      margin-top: 16px;
+      display: none;
     }
 
-    /* Downloading overlay */
+    /* Downloading */
     #downloading-section { display: none; margin-top: 20px; }
 
     .downloading-box {
-      background: rgba(124,58,237,0.15);
-      border: 1px solid rgba(124,58,237,0.35);
-      border-radius: 13px; padding: 22px;
+      background: rgba(124,58,237,0.12);
+      border: 1px solid rgba(124,58,237,0.3);
+      border-radius: 13px;
+      padding: 20px;
       text-align: center;
     }
-
-    .downloading-box .title {
-      font-weight: 700; margin-bottom: 6px;
-    }
-
-    .downloading-box .sub {
-      font-size: 0.83rem; color: #a5b4fc;
-    }
+    .downloading-box .dl-title { font-weight: 700; margin-bottom: 5px; }
+    .downloading-box .dl-sub { font-size: 0.83rem; color: #a5b4fc; }
 
     .progress-bar-wrap {
-      background: rgba(255,255,255,0.08);
-      border-radius: 999px; height: 6px;
-      margin: 16px 0 0; overflow: hidden;
+      background: rgba(255,255,255,0.07);
+      border-radius: 999px;
+      height: 5px;
+      margin-top: 14px;
+      overflow: hidden;
     }
-
     .progress-bar-fill {
       height: 100%;
       background: linear-gradient(90deg, #7c3aed, #4f46e5);
       border-radius: 999px;
-      animation: indeterminate 1.5s ease-in-out infinite;
+      animation: slide 1.4s ease-in-out infinite;
       width: 40%;
     }
-
-    @keyframes indeterminate {
-      0%   { transform: translateX(-100%); }
-      100% { transform: translateX(350%); }
+    @keyframes slide {
+      0%   { transform: translateX(-120%); }
+      100% { transform: translateX(380%); }
     }
 
     .spinner {
-      display: inline-block; width: 16px; height: 16px;
+      display: inline-block;
+      width: 15px; height: 15px;
       border: 2px solid rgba(255,255,255,0.2);
-      border-top-color: #fff; border-radius: 50%;
+      border-top-color: #fff;
+      border-radius: 50%;
       animation: spin 0.6s linear infinite;
-      vertical-align: middle; margin-right: 6px;
+      vertical-align: middle;
+      margin-right: 6px;
     }
     @keyframes spin { to { transform: rotate(360deg); } }
 
     .footer {
-      margin-top: 44px; font-size: 0.75rem; color: #374151; text-align: center;
+      margin-top: 44px;
+      font-size: 0.75rem;
+      color: #374151;
+      text-align: center;
+    }
+
+    @media (max-width: 480px) {
+      .platform-tabs { gap: 0; }
+      .tab { padding: 9px 14px; font-size: 0.82rem; }
+      .video-meta img { width: 100px; height: 62px; }
     }
   </style>
 </head>
 <body>
 
   <div class="logo">VideoDown</div>
-  <p class="subtitle">YouTube & TikTok 동영상 다운로더</p>
+  <p class="subtitle">YouTube · TikTok · Instagram 동영상 다운로더</p>
 
-  <div class="badge-row">
-    <div class="badge yt"><span class="dot"></span> YouTube</div>
-    <div class="badge tt"><span class="dot"></span> TikTok</div>
+  <!-- Platform tabs -->
+  <div class="platform-tabs">
+    <button class="tab yt active" onclick="selectTab('youtube')">
+      <span class="tab-icon">▶</span> YouTube
+    </button>
+    <button class="tab tt" onclick="selectTab('tiktok')">
+      <span class="tab-icon">♪</span> TikTok
+    </button>
+    <button class="tab ig" onclick="selectTab('instagram')">
+      <span class="tab-icon">◈</span> Instagram
+    </button>
   </div>
 
   <div class="card">
     <div class="input-row">
-      <input type="text" id="url-input" placeholder="YouTube 또는 TikTok 링크를 붙여넣으세요..." />
+      <input type="text" id="url-input" placeholder="YouTube 링크를 붙여넣으세요..." />
       <button class="btn btn-search" id="search-btn" onclick="fetchInfo()">분석</button>
+    </div>
+    <div class="platform-hint" id="platform-hint">
+      <span id="hint-text">예: https://www.youtube.com/watch?v=... 또는 https://youtu.be/...</span>
     </div>
 
     <div class="error-box" id="error-box"></div>
 
     <div id="info-section">
+      <hr class="divider" />
       <div class="video-meta">
-        <img id="thumbnail" src="" alt="thumbnail" onerror="this.style.display='none'" />
+        <img id="thumbnail" src="" alt="" onerror="this.style.visibility='hidden'" />
         <div class="video-meta-text">
           <h3 id="video-title"></h3>
-          <p id="video-meta"></p>
+          <div class="meta-row">
+            <span class="platform-badge" id="platform-badge"></span>
+            <span id="video-meta"></span>
+          </div>
         </div>
       </div>
 
@@ -215,8 +318,8 @@
 
     <div id="downloading-section">
       <div class="downloading-box">
-        <div class="title">다운로드 중...</div>
-        <div class="sub" id="dl-sub">잠시 기다려주세요</div>
+        <div class="dl-title">다운로드 준비 중...</div>
+        <div class="dl-sub">잠시 기다려주세요. 파일이 준비되면 자동으로 저장됩니다.</div>
         <div class="progress-bar-wrap">
           <div class="progress-bar-fill"></div>
         </div>
@@ -224,13 +327,44 @@
     </div>
   </div>
 
-  <div class="footer">
-    개인 사용 목적으로만 사용하세요. 저작권에 유의하세요.
-  </div>
+  <div class="footer">개인 사용 목적으로만 사용하세요. 저작권에 유의하세요.</div>
 
 <script>
+  const HINTS = {
+    youtube:   'YouTube 링크를 붙여넣으세요...',
+    tiktok:    'TikTok 링크를 붙여넣으세요...',
+    instagram: 'Instagram 링크를 붙여넣으세요...',
+  };
+
+  const HINT_EXAMPLES = {
+    youtube:   '예: https://www.youtube.com/watch?v=... 또는 https://youtu.be/...',
+    tiktok:    '예: https://www.tiktok.com/@유저명/video/...',
+    instagram: '예: https://www.instagram.com/reel/... 또는 /p/...',
+  };
+
+  let currentPlatform = 'youtube';
   let currentUrl = '';
   let currentTitle = '';
+
+  function selectTab(platform) {
+    currentPlatform = platform;
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    document.querySelector(`.tab.${platform === 'youtube' ? 'yt' : platform === 'tiktok' ? 'tt' : 'ig'}`).classList.add('active');
+    document.getElementById('url-input').placeholder = HINTS[platform];
+    document.getElementById('hint-text').textContent = HINT_EXAMPLES[platform];
+    hideError();
+    document.getElementById('info-section').style.display = 'none';
+    document.getElementById('downloading-section').style.display = 'none';
+    document.getElementById('url-input').value = '';
+    document.getElementById('url-input').focus();
+  }
+
+  function autoDetectPlatform(url) {
+    if (/youtube\.com|youtu\.be/.test(url)) return 'youtube';
+    if (/tiktok\.com/.test(url)) return 'tiktok';
+    if (/instagram\.com/.test(url)) return 'instagram';
+    return currentPlatform;
+  }
 
   function showError(msg) {
     const box = document.getElementById('error-box');
@@ -255,9 +389,22 @@
     return Math.round(bytes / 1e3) + ' KB';
   }
 
+  const PLATFORM_LABELS = {
+    youtube: '▶ YouTube',
+    tiktok: '♪ TikTok',
+    instagram: '◈ Instagram',
+    generic: '● Video',
+  };
+
   async function fetchInfo() {
     const url = document.getElementById('url-input').value.trim();
     if (!url) return showError('URL을 입력해주세요.');
+
+    const detected = autoDetectPlatform(url);
+    if (detected !== currentPlatform) {
+      selectTab(detected);
+      document.getElementById('url-input').value = url;
+    }
 
     hideError();
     document.getElementById('info-section').style.display = 'none';
@@ -265,7 +412,7 @@
 
     const btn = document.getElementById('search-btn');
     btn.disabled = true;
-    btn.innerHTML = '<span class="spinner"></span> 분석 중...';
+    btn.innerHTML = '<span class="spinner"></span>분석 중...';
 
     try {
       const res = await fetch('/api/info', {
@@ -279,11 +426,17 @@
       currentUrl = url;
       currentTitle = data.title || 'video';
 
-      document.getElementById('thumbnail').src = data.thumbnail || '';
-      document.getElementById('thumbnail').style.display = '';
+      const thumb = document.getElementById('thumbnail');
+      thumb.src = data.thumbnail || '';
+      thumb.style.visibility = '';
+
       document.getElementById('video-title').textContent = data.title || '제목 없음';
       document.getElementById('video-meta').textContent =
         [data.uploader, formatDuration(data.duration)].filter(Boolean).join(' · ');
+
+      const badge = document.getElementById('platform-badge');
+      badge.textContent = PLATFORM_LABELS[data.platform || 'generic'];
+      badge.className = `platform-badge ${data.platform || 'generic'}`;
 
       const select = document.getElementById('format-select');
       select.innerHTML = '<option value="best">최고 화질 (MP4)</option>';
@@ -297,7 +450,7 @@
 
       document.getElementById('info-section').style.display = 'block';
     } catch (e) {
-      showError(e.message || '오류 발생');
+      showError(e.message || '알 수 없는 오류가 발생했습니다.');
     } finally {
       btn.disabled = false;
       btn.textContent = '분석';
@@ -306,18 +459,11 @@
 
   function startDownload() {
     if (!currentUrl) return;
-
     const format = document.getElementById('format-select').value;
-    const params = new URLSearchParams({
-      url: currentUrl,
-      format,
-      title: currentTitle,
-    });
+    const params = new URLSearchParams({ url: currentUrl, format, title: currentTitle });
 
     document.getElementById('downloading-section').style.display = 'block';
-    document.getElementById('dl-sub').textContent = '파일을 준비 중입니다...';
 
-    // Trigger browser download via hidden link
     const a = document.createElement('a');
     a.href = '/api/download?' + params.toString();
     a.style.display = 'none';
@@ -325,14 +471,22 @@
     a.click();
     document.body.removeChild(a);
 
-    // Hide downloading indicator after a moment
     setTimeout(() => {
       document.getElementById('downloading-section').style.display = 'none';
-    }, 4000);
+    }, 5000);
   }
 
   document.getElementById('url-input').addEventListener('keydown', e => {
     if (e.key === 'Enter') fetchInfo();
+  });
+
+  // Auto-detect platform as user types
+  document.getElementById('url-input').addEventListener('input', e => {
+    const url = e.target.value.trim();
+    if (!url) return;
+    const detected = autoDetectPlatform(url);
+    if (detected !== currentPlatform) selectTab(detected);
+    document.getElementById('url-input').value = url;
   });
 </script>
 </body>
