@@ -62,7 +62,7 @@ function detectPlatform(url) {
 // Only YouTube needs special args — TikTok/Instagram work with yt-dlp defaults
 function getPlatformArgs(platform) {
   if (platform === 'youtube') {
-    return ['--extractor-args', 'youtube:player_client=android,web'];
+    return ['--extractor-args', 'youtube:player_client=tv,ios,web_safari,web'];
   }
   return [];
 }
