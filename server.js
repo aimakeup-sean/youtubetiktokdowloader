@@ -207,6 +207,7 @@ app.get('/api/download', async (req, res) => {
   req.on('close', () => proc.kill('SIGTERM'));
 });
 
+app.get('/health', (req, res) => res.json({ status: 'ok' }));
 app.listen(PORT, () => {
   console.log(`서버 실행 중: http://localhost:${PORT}`);
 });
