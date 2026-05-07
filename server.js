@@ -143,8 +143,9 @@ app.post('/api/info', async (req, res) => {
       formats,
     });
   } catch (e) {
-    console.error('[info error]', e.message.slice(0, 300));
-    res.status(400).json({ error: '동영상 정보를 가져올 수 없습니다. URL을 다시 확인해주세요.' });
+    const errDetail = e.message.slice(0, 300);
+    console.error('[info error]', errDetail);
+    res.status(400).json({ error: '동영상 정보를 가져올 수 없습니다.', detail: errDetail });
   }
 });
 
