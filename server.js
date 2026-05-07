@@ -62,9 +62,25 @@ function detectPlatform(url) {
 // Only YouTube needs special args — TikTok/Instagram work with yt-dlp defaults
 function getPlatformArgs(platform) {
   if (platform === 'youtube') {
-    return [];
+    return [
+      '--extractor-args', 'youtube:player_client=tv_embedded,ios',
+      '--retries', '3',
+    ];
   }
-  return [];
+  if (platform === 'tiktok') {
+    return [
+      '--add-header', 'User-Agent:Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+      '--add-header', 'Referer:https://www.tiktok.com/',
+      '--retries', '3',
+    ];
+  }
+  if (platform === 'instagram') {
+    return [
+      '--add-header', 'User-Agent:Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+      '--retries', '3',
+    ];
+  }
+  return ['--retries', '3'];
 }
 
 function runYtDlp(runner, args, timeoutMs = 45000) {
