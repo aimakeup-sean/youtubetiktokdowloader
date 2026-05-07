@@ -15,7 +15,6 @@ app.use(express.static(path.join(__dirname, 'public')));
 const TMP_DIR = os.tmpdir();
 const YT_DLP_TMP = path.join(TMP_DIR, 'yt-dlp');
 
-// Returns { cmd, args_prefix } — supports both binary and python3 -m yt_dlp
 function getYtDlpRunner() {
   const systemPaths = ['/usr/local/bin/yt-dlp', '/usr/bin/yt-dlp'];
   for (const p of systemPaths) {
@@ -25,7 +24,6 @@ function getYtDlpRunner() {
     const bin = execSync('which yt-dlp', { stdio: 'pipe' }).toString().trim();
     if (bin) return { cmd: bin, prefix: [] };
   } catch {}
-  // Fallback: python3 -m yt_dlp
   try {
     execSync('python3 -m yt_dlp --version', { stdio: 'pipe' });
     return { cmd: 'python3', prefix: ['-m', 'yt_dlp'] };
@@ -37,7 +35,6 @@ let YT_DLP_RUNNER = getYtDlpRunner();
 
 async function ensureYtDlp() {
   if (YT_DLP_RUNNER) return YT_DLP_RUNNER;
-  // Download Linux binary (for Railway/Docker)
   if (fs.existsSync(YT_DLP_TMP)) {
     YT_DLP_RUNNER = { cmd: YT_DLP_TMP, prefix: [] };
     return YT_DLP_RUNNER;
@@ -59,31 +56,7 @@ function detectPlatform(url) {
   return 'generic';
 }
 
-// Only YouTube needs special args — TikTok/Instagram work with yt-dlp defaults
-function getPlatformArgs(platform) {
-  if (platform === 'youtube') {
-    return [
-      '--extractor-args', 'youtube:player_client=tv_embedded,ios',
-      '--retries', '3',
-    ];
-  }
-  if (platform === 'tiktok') {
-    return [
-      '--add-header', 'User-Agent:Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
-      '--add-header', 'Referer:https://www.tiktok.com/',
-      '--retries', '3',
-    ];
-  }
-  if (platform === 'instagram') {
-    return [
-      '--add-header', 'User-Agent:Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
-      '--retries', '3',
-    ];
-  }
-  return ['--retries', '3'];
-}
-
-function runYtDlp(runner, args, timeoutMs = 45000) {
+function runYtDlp(runner, args, timeoutMs = 30000) {
   return new Promise((resolve, reject) => {
     const proc = spawn(runner.cmd, [...runner.prefix, ...args]);
     let stdout = '', stderr = '';
@@ -99,6 +72,45 @@ function runYtDlp(runner, args, timeoutMs = 45000) {
   });
 }
 
+// YouTube: 여러 클라이언트를 순서대로 시도
+const YOUTUBE_STRATEGIES = [
+  ['--extractor-args', 'youtube:player_client=tv_embedded'],
+  ['--extractor-args', 'youtube:player_client=web_creator'],
+  ['--extractor-args', 'youtube:player_client=ios'],
+  ['--extractor-args', 'youtube:player_client=mweb'],
+  ['--extractor-args', 'youtube:player_client=android'],
+];
+
+// TikTok: 여러 User-Agent로 순서대로 시도
+const TIKTOK_STRATEGIES = [
+  [
+    '--add-header', 'User-Agent:Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+    '--add-header', 'Referer:https://www.tiktok.com/',
+  ],
+  [
+    '--user-agent', 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1',
+  ],
+  [], // 기본값
+];
+
+async function runWithFallback(runner, baseArgs, strategies, url, timeoutMs = 30000) {
+  let lastError;
+  for (let i = 0; i < strategies.length; i++) {
+    const extraArgs = strategies[i];
+    const args = [...baseArgs, ...extraArgs, url];
+    try {
+      console.log(`[시도 ${i + 1}/${strategies.length}]`, extraArgs.join(' ') || '기본값');
+      const result = await runYtDlp(runner, args, timeoutMs);
+      console.log(`[성공] 시도 ${i + 1}`);
+      return result;
+    } catch (e) {
+      lastError = e;
+      console.error(`[실패 ${i + 1}]`, e.message.slice(0, 150));
+    }
+  }
+  throw lastError;
+}
+
 // Get video info
 app.post('/api/info', async (req, res) => {
   const { url } = req.body;
@@ -112,16 +124,21 @@ app.post('/api/info', async (req, res) => {
   const safeUrl = url.replace(/['"<>]/g, '').trim();
   const platform = detectPlatform(safeUrl);
 
-  const args = [
+  const baseArgs = [
     '--dump-json',
     '--no-playlist',
     '--no-check-certificates',
-    ...getPlatformArgs(platform),
-    safeUrl,
+    '--geo-bypass',
+    '--socket-timeout', '15',
   ];
 
+  let strategies;
+  if (platform === 'youtube') strategies = YOUTUBE_STRATEGIES;
+  else if (platform === 'tiktok') strategies = TIKTOK_STRATEGIES;
+  else strategies = [[]];
+
   try {
-    const stdout = await runYtDlp(runner, args);
+    const stdout = await runWithFallback(runner, baseArgs, strategies, safeUrl);
     const info = JSON.parse(stdout.trim().split('\n')[0]);
     const formats = (info.formats || [])
       .filter(f => f.vcodec !== 'none' && f.acodec !== 'none' && f.ext)
@@ -143,13 +160,13 @@ app.post('/api/info', async (req, res) => {
       formats,
     });
   } catch (e) {
-    const errDetail = e.message.slice(0, 300);
-    console.error('[info error]', errDetail);
+    const errDetail = e.message.slice(0, 500);
+    console.error('[최종 실패]', errDetail);
     res.status(400).json({ error: '동영상 정보를 가져올 수 없습니다.', detail: errDetail });
   }
 });
 
-// Download: save to temp file (needed for ffmpeg merging), then stream to client
+// Download
 app.get('/api/download', async (req, res) => {
   const { url, format, title } = req.query;
   if (!url) return res.status(400).json({ error: 'URL이 필요합니다.' });
@@ -165,66 +182,60 @@ app.get('/api/download', async (req, res) => {
   const timestamp = Date.now();
   const tmpTemplate = path.join(TMP_DIR, `vdl_${timestamp}.%(ext)s`);
 
-  const args = [
+  const baseArgs = [
     '--no-playlist',
     '-o', tmpTemplate,
     '--no-warnings',
     '--no-check-certificates',
+    '--geo-bypass',
+    '--socket-timeout', '15',
     '--merge-output-format', 'mp4',
-    ...getPlatformArgs(platform),
   ];
 
   if (format && format !== 'best') {
-    args.push('-f', format);
+    baseArgs.push('-f', format);
   } else {
-    args.push('-f', 'bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best');
+    baseArgs.push('-f', 'bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best');
   }
-  args.push(safeUrl);
+
+  let strategies;
+  if (platform === 'youtube') strategies = YOUTUBE_STRATEGIES;
+  else if (platform === 'tiktok') strategies = TIKTOK_STRATEGIES;
+  else strategies = [[]];
 
   console.log('[download]', platform, safeUrl.slice(0, 60));
 
-  const proc = spawn(runner.cmd, [...runner.prefix, ...args]);
-  proc.stderr.on('data', d => console.error('[dl]', d.toString().trim()));
+  try {
+    await runWithFallback(runner, baseArgs, strategies, safeUrl, 120000);
+  } catch (e) {
+    if (!res.headersSent) res.status(500).json({ error: '다운로드 실패: ' + e.message.slice(0, 200) });
+    return;
+  }
 
-  proc.on('close', (code) => {
-    if (code !== 0) {
-      if (!res.headersSent) res.status(500).json({ error: '다운로드 실패' });
-      return;
+  let outFile = path.join(TMP_DIR, `vdl_${timestamp}.mp4`);
+  if (!fs.existsSync(outFile)) {
+    const files = fs.readdirSync(TMP_DIR).filter(f => f.startsWith(`vdl_${timestamp}`));
+    if (files.length === 0) {
+      return res.status(500).json({ error: '다운로드된 파일을 찾을 수 없습니다.' });
     }
+    outFile = path.join(TMP_DIR, files[0]);
+  }
 
-    // Find the downloaded file
-    let outFile = path.join(TMP_DIR, `vdl_${timestamp}.mp4`);
-    if (!fs.existsSync(outFile)) {
-      // yt-dlp might have used a different extension
-      const files = fs.readdirSync(TMP_DIR).filter(f => f.startsWith(`vdl_${timestamp}`));
-      if (files.length === 0) {
-        return res.status(500).json({ error: '다운로드된 파일을 찾을 수 없습니다.' });
-      }
-      outFile = path.join(TMP_DIR, files[0]);
-    }
+  const ext = path.extname(outFile).slice(1) || 'mp4';
+  const filename = `${safeTitle}.${ext}`;
 
-    const ext = path.extname(outFile).slice(1) || 'mp4';
-    const filename = `${safeTitle}.${ext}`;
+  res.setHeader('Content-Type', ext === 'mp4' ? 'video/mp4' : 'application/octet-stream');
+  res.setHeader('Content-Disposition', `attachment; filename*=UTF-8''${encodeURIComponent(filename)}`);
+  res.setHeader('Content-Length', fs.statSync(outFile).size);
 
-    res.setHeader('Content-Type', ext === 'mp4' ? 'video/mp4' : 'application/octet-stream');
-    res.setHeader('Content-Disposition', `attachment; filename*=UTF-8''${encodeURIComponent(filename)}`);
-    res.setHeader('Content-Length', fs.statSync(outFile).size);
-
-    const stream = fs.createReadStream(outFile);
-    stream.pipe(res);
-    stream.on('close', () => fs.unlink(outFile, () => {}));
-    stream.on('error', () => { fs.unlink(outFile, () => {}); res.destroy(); });
-  });
-
-  proc.on('error', (err) => {
-    console.error('spawn error:', err);
-    if (!res.headersSent) res.status(500).json({ error: '다운로드 실패' });
-  });
-
-  req.on('close', () => proc.kill('SIGTERM'));
+  const stream = fs.createReadStream(outFile);
+  stream.pipe(res);
+  stream.on('close', () => fs.unlink(outFile, () => {}));
+  stream.on('error', () => { fs.unlink(outFile, () => {}); res.destroy(); });
 });
 
 app.get('/health', (req, res) => res.json({ status: 'ok' }));
+
 app.listen(PORT, () => {
   console.log(`서버 실행 중: http://localhost:${PORT}`);
 });
